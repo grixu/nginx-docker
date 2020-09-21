@@ -1,6 +1,6 @@
 # nginx-docker
 
-Docker image of nginx with ngx_pagespeed & ngx_brotli. Uses automatic install script from (ngxpagespeed.com/install)[ngxpagespeed.com/install].
+Docker image of nginx with ngx_pagespeed & ngx_brotli. Uses automatic install script from [ngxpagespeed.com/install](ngxpagespeed.com/install).
 
 ## Structure
 
