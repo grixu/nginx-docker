@@ -1,9 +1,11 @@
 FROM ubuntu:20.04
 
-LABEL maintainer="NGINX Docker Maintainers <docker-maint@nginx.com>"
+LABEL maintainer="Mateusz Gostanski <mg@grixu.dev>"
 
 ENV NGINX_VERSION   1.19.2
 ENV NPS_VERSION     1.13.35.2-stable
+ENV NPS_RELEASE_NUMBER ${NPS_VERSION}/stable/
+ENV TZ=Europe/Warsaw
 
 RUN set -x \
 # create nginx user/group first, to be consistent throughout docker variants
@@ -26,29 +28,22 @@ RUN set -x \
     test -z "$found" && echo >&2 "error: failed to fetch GPG key $NGINX_GPGKEY" && exit 1; \
     apt-get remove --purge --auto-remove -y gnupg1 && rm -rf /var/lib/apt/lists/* 
 
-RUN cd \
-wget -O- https://github.com/apache/incubator-pagespeed-ngx/archive/v${NPS_VERSION}.tar.gz | tar -xz \
-nps_dir=$(find . -name "*pagespeed-ngx-${NPS_VERSION}" -type d) \
-cd "$nps_dir" \
-NPS_RELEASE_NUMBER=${NPS_VERSION/beta/} \
-NPS_RELEASE_NUMBER=${NPS_VERSION/stable/} \
-psol_url=https://dl.google.com/dl/page-speed/psol/${NPS_RELEASE_NUMBER}.tar.gz \
-[ -e scripts/format_binary_url.sh ] && psol_url=$(scripts/format_binary_url.sh P SOL_BINARY_URL) \
-wget -O- ${psol_url} | tar -xz;
+RUN ln -snf /usr/share/zoneinfo/${TZ} /etc/localtime && echo ${TZ} > /etc/timezone
 
-#[check nginx's site for the latest version]
-RUN cd \
-wget -O- http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz | tar -xz \
-cd nginx-${NGINX_VERSION}/ \
-./configure --add-module=$HOME/$nps_dir ${PS_NGX_EXTRA_FLAGS} \ 
-make \
-sudo make install;
+RUN apt-get update && apt-get install -qy build-essential zlib1g-dev libpcre3 libpcre3-dev unzip uuid-dev wget brotli libbrotli-dev libssl-dev curl libgd-dev
+RUN apt-get install -qy git
 
+RUN cd && git clone https://github.com/google/ngx_brotli.git
 
-RUN ln -sf /dev/stdout /var/log/nginx/access.log \
-    && ln -sf /dev/stderr /var/log/nginx/error.log \
-# create a docker-entrypoint.d directory
-    && mkdir /docker-entrypoint.d
+RUN curl -f -L -sS https://ngxpagespeed.com/install > install.sh 
+RUN bash install.sh --nginx-version latest \
+     -y \
+     -a '--add-module=/root/ngx_brotli --sbin-path=/usr/sbin --user=www-data --group=www-data --with-threads --with-file-aio --with-http_ssl_module --with-http_v2_module --with-http_image_filter_module --with-http_gzip_static_module --with-http_auth_request_module --with-stream --with-stream_ssl_module' \
+     || true
+
+RUN cd /root/nginx-${NGINX_VERSION} && make install
+
+RUN mkdir /docker-entrypoint.d
 
 COPY docker-entrypoint.sh /
 ENTRYPOINT ["/docker-entrypoint.sh"]
