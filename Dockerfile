@@ -2,6 +2,10 @@ FROM ubuntu:20.04
 
 LABEL maintainer="Mateusz Gostanski <mg@grixu.dev>"
 
+ARG user_uid
+ARG group_gid
+ARG port
+
 ENV NGINX_VERSION   1.19.2
 ENV NPS_VERSION     1.13.35.2-stable
 ENV NPS_RELEASE_NUMBER ${NPS_VERSION}/stable/
@@ -9,8 +13,8 @@ ENV TZ=Europe/Warsaw
 
 RUN set -x \
 # create nginx user/group first, to be consistent throughout docker variants
-    && addgroup --system --gid 1001 nginx \
-    && adduser --system --disabled-login --ingroup nginx --no-create-home --home /nonexistent --gecos "nginx user" --shell /bin/false --uid 1001 nginx \
+    && addgroup --system --gid $group_gid nginx \
+    && adduser --system --disabled-login --ingroup nginx --no-create-home --home /nonexistent --gecos "nginx user" --shell /bin/false --uid $user_uid nginx \
     && apt-get update \
     && apt-get install --no-install-recommends --no-install-suggests -y gnupg1 ca-certificates \
     && \
@@ -30,7 +34,7 @@ RUN set -x \
 
 RUN ln -snf /usr/share/zoneinfo/${TZ} /etc/localtime && echo ${TZ} > /etc/timezone
 
-RUN apt-get update && apt-get install -qy build-essential zlib1g-dev libpcre3 libpcre3-dev unzip uuid-dev wget brotli libbrotli-dev libssl-dev curl libgd-dev
+RUN apt-get update && apt-get install -qy build-essential zlib1g-dev libpcre3 libpcre3-dev unzip uuid-dev wget brotli libbrotli-dev libssl-dev curl libgd-dev procps iputils-ping
 RUN apt-get install -qy git
 
 RUN cd && git clone https://github.com/google/ngx_brotli.git
@@ -43,12 +47,14 @@ RUN bash install.sh --nginx-version latest \
 
 RUN cd /root/nginx-${NGINX_VERSION} && make install
 
-RUN mkdir /docker-entrypoint.d
+COPY h5bp /usr/local/nginx/conf/h5bp
+COPY nginx.conf /usr/local/nginx/conf/nginx.conf
 
+RUN mkdir /docker-entrypoint.d
 COPY docker-entrypoint.sh /
 ENTRYPOINT ["/docker-entrypoint.sh"]
 
-EXPOSE 80
+EXPOSE $port
 
 STOPSIGNAL SIGTERM
 
