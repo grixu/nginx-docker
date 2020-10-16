@@ -2,11 +2,11 @@ FROM ubuntu:20.04
 
 LABEL maintainer="Mateusz Gostanski <mg@grixu.dev>"
 
-ARG user_uid
-ARG group_gid
-ARG port
+ARG user_uid=1001
+ARG group_gid=1001
+ARG port=80
 
-ENV NGINX_VERSION   1.19.2
+ENV NGINX_VERSION   1.19.3
 ENV NPS_VERSION     1.13.35.2-stable
 ENV NPS_RELEASE_NUMBER ${NPS_VERSION}/stable/
 ENV TZ=Europe/Warsaw
@@ -14,8 +14,8 @@ ENV TZ=Europe/Warsaw
 RUN set -x \
 # create nginx user/group first, to be consistent throughout docker variants
     && addgroup --system --gid $group_gid nginx \
-    && adduser --system --disabled-login --ingroup nginx --no-create-home --home /nonexistent --gecos "nginx user" --shell /bin/false --uid $user_uid nginx \
-    && apt-get update \
+    && adduser --system --disabled-login --ingroup nginx --no-create-home --home /nonexistent --gecos "nginx user" --shell /bin/false --uid $user_uid nginx
+RUN apt-get update \
     && apt-get install --no-install-recommends --no-install-suggests -y gnupg1 ca-certificates \
     && \
     NGINX_GPGKEY=573BFD6B3D8FBC641079A6ABABF5BD827BD9BF62; \
@@ -48,11 +48,12 @@ RUN bash install.sh --nginx-version latest \
 RUN cd /root/nginx-${NGINX_VERSION} && make install
 
 COPY h5bp /usr/local/nginx/conf/h5bp
+COPY conf.d /usr/local/nginx/conf/conf.d
 COPY nginx.conf /usr/local/nginx/conf/nginx.conf
 
-RUN mkdir /docker-entrypoint.d
-COPY docker-entrypoint.sh /
-ENTRYPOINT ["/docker-entrypoint.sh"]
+# COPY ./docker-entrypoint.sh /
+# RUN mkdir /docker-entrypoint.d
+# ENTRYPOINT ["/docker-entrypoint.sh"]
 
 EXPOSE $port
 
